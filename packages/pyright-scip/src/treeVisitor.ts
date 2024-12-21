@@ -279,6 +279,24 @@ export class TreeVisitor extends ParseTreeWalker {
                     documentation: _formatHover(hoverResult!),
                 })
             );
+        } 
+        else if (node.parent?.nodeType == ParseNodeType.Assignment && node.valueExpression.nodeType === ParseNodeType.Name) {
+            this._docstringWriter.visitTypeAnnotation(node);
+
+            let documentation = [];
+
+            let assignmentDoc = this._docstringWriter.docstrings.get(node.id);
+            if (assignmentDoc) {
+                documentation.push('```python\n' + assignmentDoc.join('\n') + '\n```');
+            }
+
+            // node.typeAnnotationComment
+            this.document.symbols.push(
+                new scip.SymbolInformation({
+                    symbol: this.getScipSymbol(node).value,
+                    documentation,
+                })
+            );
         }
 
         return true;
@@ -1164,8 +1182,14 @@ export class TreeVisitor extends ParseTreeWalker {
                         return ScipSymbol.local(this.counter.next());
                     }
                 }
-
-                return Symbols.makeTerm(this.getScipSymbol(enclosingSuite || parent), (node as NameNode).value);
+                
+                let symbol = null;
+                if (parent.nodeType === ParseNodeType.TypeAnnotation)
+                    symbol = this.getScipSymbol(enclosingSuite || parent);
+                else
+                    symbol = Symbols.makeTerm(this.getScipSymbol(enclosingSuite || parent), (node as NameNode).value);
+                
+                return symbol;
             }
             case ParseNodeType.TypeAnnotation: {
                 switch (node.valueExpression.nodeType) {
